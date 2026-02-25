@@ -1,6 +1,28 @@
+# === Terraform ===
 .terraform/
 *.tfstate
 *.tfstate.backup
-terraform.tfvars
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+
+# === Ansible ===
+*.retry
+*.log
+.vault_pass
+# 테라폼으로 자동 생성한 인벤토리는 로컬 경로가 포함되므로 제외
 inventory.ini
+zomboid-ansible/inventory.ini
+
+# === Java & Workload ===
+# 긁어온 클래스 파일 및 컴파일 부산물
 *.class
+*.jar
+*.war
+
+# === OS & IDE ===
+.DS_Store
+.idea/
+.vscode/
+*.swp
