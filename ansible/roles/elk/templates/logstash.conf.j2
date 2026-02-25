@@ -1,0 +1,224 @@
+input {
+  # Filebeat에서 전송하는 데이터를 수신하기 위한 진입점
+  beats {
+    port => 5044
+    host => "0.0.0.0"
+  }
+}
+
+filter {
+  # =======================================================================
+  # [1단계] 공통 파싱: 타임스탬프와 메시지 본문 분리
+  # 모든 좀보이드 로그의 기본 형태를 정규식(grok)으로 분해하여 1차 정제함.
+  # =======================================================================
+  grok {
+    pattern_definitions => {
+      "PZ_TIMESTAMP" => "\[%{INT:day}-%{INT:month}-%{INT:year} %{TIME:time}\]"
+    }
+    match => {
+      "message" => [
+        # 패턴 1: 일반 로그 (공백 포함, 예: [시간] [INFO] 메시지)
+        "^%{PZ_TIMESTAMP:pz_raw_timestamp}%{SPACE}(?:\[%{DATA:log_level}\])?%{SPACE}%{GREEDYDATA:rest_msg}",
+        
+        # 패턴 2: 공백 없는 에러 로그 (예: [시간][error] 메시지)
+        "^%{PZ_TIMESTAMP:pz_raw_timestamp}\[%{DATA:log_level}\] %{GREEDYDATA:rest_msg}",
+        
+        # 패턴 3: 로그 레벨이 없는 단순 형태 (예: [시간] 메시지)
+        "^%{PZ_TIMESTAMP:pz_raw_timestamp}%{GREEDYDATA:rest_msg}"
+      ]
+    }
+    # 매칭 성공 시, 불필요한 기본 실패 태그를 제거하여 인덱스를 깔끔하게 유지
+    remove_tag => ["_grokparsefailure"]
+  }
+
+  # 좌표 데이터 강제 추출 및 유효성 검증
+  # 문자열 형태의 좌표를 정수형(integer)으로 변환 후, 맵 범위를 벗어나는 가짜 좌표를 필터링.
+  if [message] =~ /\(\d+,\d+,\d+\)/ {
+    grok {
+      match => { "message" => "\(%{INT:pos_x},%{INT:pos_y},%{INT:pos_z}\)" }
+    }
+    mutate {
+      # Kibana에서 지도 시각화나 숫자 연산을 하기 위해 string을 integer로 형변환
+      convert => { 
+        "pos_x" => "integer" 
+        "pos_y" => "integer" 
+        "pos_z" => "integer" 
+      }
+    }
+    
+    # Z축(층수) 0~7 초과, X/Y 음수 값은 버그성 좌표로 간주하여 필드에서 드롭
+    if [pos_z] > 8 or [pos_x] < 0 or [pos_y] < 0 {
+      mutate {
+        remove_field => ["pos_x", "pos_y", "pos_z"]
+        add_tag => ["invalid_coordinates"]
+      }
+    } else {
+      mutate { add_tag => ["has_coordinates"] }
+    }
+  }
+
+  # =======================================================================
+  # [2단계] 파일 경로별 상세 파싱 (Filebeat에서 넘겨주는 log.file.path 기준)
+  # 각 로그 파일의 특성에 맞게 세부 데이터를 추출하여 필드로 생성함.
+  # =======================================================================
+
+  # 1. 채팅 로그 (chat.txt)
+  if [log][file][path] =~ "chat" {
+    # 서버 오류 메시지가 채팅 파일에 기록되는 현상을 분리 처리
+    if [log_level] == "error" or [rest_msg] =~ "player = null" or [rest_msg] =~ "not found on server" {
+      mutate { add_field => { "log_type" => "chat_error" } }
+    } 
+    else {
+      grok {
+        match => {
+          "rest_msg" => "\[%{DATA:chat_channel}\] %{DATA:player_name}: %{DATA:chat_message}(?: \(%{INT:pos_x},%{INT:pos_y},%{INT:pos_z}\))?"
+        }
+      }
+      mutate { add_field => { "log_type" => "chat" } }
+      
+      # 채팅에 포함된 좌표 데이터 형변환
+      if [pos_x] {
+        mutate { convert => { "pos_x" => "integer" "pos_y" => "integer" "pos_z" => "integer" } }
+      }
+    }
+  }
+
+  # 2. 유저 활동 로그 (user.txt)
+  else if [log][file][path] =~ "user" {
+    grok {
+      match => { "rest_msg" => "user \"?%{DATA:player_name}\"? %{GREEDYDATA:pz_action}" }
+    }
+    mutate { add_field => { "log_type" => "user_activity" } }
+
+    # 액션 내용에 따라 Kibana 대시보드 통계용 서브타입 분류
+    if [pz_action] and "logged in" in [pz_action] {
+      mutate { add_field => { "event_subtype" => "login" } }
+    }
+    else if [pz_action] and ("disconnected" in [pz_action] or "quit" in [pz_action]) {
+      mutate { add_field => { "event_subtype" => "logout" } }
+    }
+    else if [pz_action] and ("died" in [pz_action] or "dead" in [pz_action]) {
+      mutate { add_field => { "event_subtype" => "death" } }
+    }
+    else if [pz_action] and "Level changed" in [pz_action] {
+      grok { match => { "pz_action" => "Level changed: %{DATA:perk_name} index=%{INT} level=%{INT:perk_level}" } }
+      mutate { add_field => { "event_subtype" => "level_up" } }
+    }
+  }
+
+  # 3. 관리자 로그 (admin.txt)
+  else if [log][file][path] =~ "admin" {
+    grok {
+      match => { "rest_msg" => "admin \"?%{DATA:admin_name}\"? %{GREEDYDATA:admin_action}" }
+    }
+    mutate { add_field => { "log_type" => "admin_command" } }
+  }
+
+  # 4. PVP 전투 및 안전모드 로그 (pvp.txt)
+  else if [log][file][path] =~ "pvp" {
+    grok {
+      match => {
+        "rest_msg" => [
+          "player \"?%{DATA:attacker_name}\"? hit player \"?%{DATA:victim_name}\"? with \"?%{DATA:weapon}\"? for %{NUMBER:damage:float} damage",
+          "user \"?%{DATA:player_name}\"? restore safety %{GREEDYDATA:safety_status}"
+        ]
+      }
+    }
+    if [attacker_name] { mutate { add_field => { "event_subtype" => "combat_hit" } } }
+    else if [safety_status] { mutate { add_field => { "event_subtype" => "safety_toggle" } } }
+    mutate { add_field => { "log_type" => "pvp_log" } }
+  }
+
+  # 5. 서버 시스템 로그 (Server.txt / console.txt)
+  else if [log][file][path] =~ "Server" or [log][file][path] =~ "console" {
+    if [rest_msg] =~ "Loading mod:" {
+      grok { match => { "rest_msg" => "Loading mod: \"%{DATA:mod_name}\" \(%{DATA:mod_id}\)" } }
+      mutate { add_field => { "log_type" => "mod_loading" } }
+    } else {
+      mutate {
+        add_field => { "log_type" => "server_status" }
+        # 시스템 메시지는 원본 텍스트를 별도 필드로 보존
+        rename => { "rest_msg" => "server_message" }
+      }
+    }
+  }
+
+  # 6. 디버그 로그 (DebugLog.txt)
+  else if [log][file][path] =~ "DebugLog" {
+    grok {
+      match => { "rest_msg" => "(?:%{DATA:debug_category}%{SPACE}> )?%{GREEDYDATA:debug_message}" }
+    }
+    mutate { add_field => { "log_type" => "debug_log" } }
+  }
+
+  # =======================================================================
+  # [3단계] 데이터 태깅 및 심각도 분류 (Kibana 시각화 및 알람용)
+  # 특정 키워드를 감지하여 카테고리(category)와 심각도(severity) 필드를 부여함.
+  # =======================================================================
+  
+  if [rest_msg] =~ "died" {
+    mutate { 
+      add_field => { "event_category" => "gameplay" "event_action" => "death" }
+      add_tag => ["player_death"] 
+    }
+  }
+  else if [rest_msg] =~ "login" or [rest_msg] =~ "connected" {
+    mutate { 
+      add_field => { "event_category" => "session" "event_action" => "login" } 
+    }
+  }
+  else if [rest_msg] =~ "kick" or [rest_msg] =~ "ban" {
+    mutate { 
+      add_field => { "event_category" => "admin" "event_action" => "punishment" } 
+      add_tag => ["admin_action"]
+    }
+  }
+  else if [rest_msg] =~ "Vehicle" or [rest_msg] =~ "car" {
+    mutate { 
+      add_field => { "event_category" => "vehicle" } 
+      add_tag => ["vehicle_interaction"]
+    }
+  }
+
+  # 에러 심각도(Severity) 자동 분류
+  if [log_level] == "error" or [rest_msg] =~ "Exception" or [rest_msg] =~ "null" {
+    mutate { 
+      add_field => { "event_severity" => "critical" }
+      add_tag => ["server_alert"]
+    }
+  } 
+  else if [log_level] == "warn" {
+    mutate { add_field => { "event_severity" => "warning" } }
+  } 
+  else {
+    mutate { add_field => { "event_severity" => "info" } }
+  }
+
+  # =======================================================================
+  # [4단계] 타임스탬프 표준화 및 최종 정리
+  # 로그스태시는 기본적으로 수집한 시각을 @timestamp로 지정함.
+  # 이를 로그 파일에 기록된 실제 발생 시각(pz_raw_timestamp)으로 덮어씌움.
+  # =======================================================================
+  if [pz_raw_timestamp] {
+    mutate { gsub => [ "pz_raw_timestamp", "\[|\]", "" ] }
+    date {
+      match => [ "pz_raw_timestamp", "dd-MM-yy HH:mm:ss.SSS", "dd-MM-yy HH:mm:ss" ]
+      target => "@timestamp"
+      timezone => "Asia/Seoul"
+      
+      # 파싱이 끝난 임시 필드와 본문 메시지는 디스크 용량 확보를 위해 삭제
+      remove_field => [ "pz_raw_timestamp", "rest_msg" ]
+    }
+  }
+}
+
+output {
+  elasticsearch {
+    hosts => ["https://localhost:9200"]
+    # 날짜별로 인덱스를 생성하여 데이터 수명 주기 관리를 용이하게 함
+    index => "zomboid-logs-%{+YYYY.MM.dd}"
+    user => "elastic"
+    password => "{{ vault_elastic_password }}"
+    ssl_certificate_verification => false
+  }
+}

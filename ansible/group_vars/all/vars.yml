@@ -1,0 +1,2 @@
+ts_key: "{{ vault_ts_key }}"
+ansible_become_password: "{{ vault_control_node_become_pass }}"

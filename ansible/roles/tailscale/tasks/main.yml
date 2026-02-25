@@ -1,0 +1,13 @@
+---
+- name: Install Tailscale
+  ansible.builtin.shell: curl -fsSL https://tailscale.com/install.sh | sh
+  args:
+    creates: /usr/bin/tailscale
+
+- name: Authenticate Tailscale and bring up
+  ansible.builtin.command:
+    # --reset을 붙여서 기존 설정 충돌을 방지하고, --accept-routes를 명시함
+    cmd: "tailscale up --authkey={{ ts_key }} --accept-routes --reset"
+  register: ts_up
+  # 성공 시의 메시지를 봐서 'changed' 여부 판단 (필요시 조정)
+  changed_when: ts_up.rc == 0

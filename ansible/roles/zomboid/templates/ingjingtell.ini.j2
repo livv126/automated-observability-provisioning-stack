@@ -1,0 +1,323 @@
+# =========================================================
+# Project Zomboid Server Configuration
+# Managed by Ansible - Do not edit manually
+# =========================================================
+
+# 적용 시 플레이어는 다른 플레이어를 살상할 수 있게 됩니다.
+PVP={{ zomboid_pvp | string | lower }}
+
+# 적용 시 플레이어가 호스트 서버에 없을 때, 게임 세계의 시간이 정지됩니다.
+PauseEmpty={{ zomboid_pause_empty | string | lower }}
+
+# 토글에 의한 글로벌 채팅의 유효/무효 전환입니다.
+GlobalChat=true
+
+ChatStreams=s,r,a,w,y,sh,f,all
+
+# 화이트리스트에 등록되지 않은 사용자도 게임에 참가할 수 있습니다.
+Open={{ zomboid_open | default('true') | string | lower }}
+
+# 채팅 패널에 표시되는 첫 번째 메시지. 
+#  플레이어 로그인 시 나타납니다.(미대응)
+ServerWelcomeMessage={{ zomboid_welcome_msg }}
+
+# 적용 시, 플레이어가 참가할 때에 화이트 리스트에 자동으로 유저명을 추가합니다.
+AutoCreateUserInWhiteList=false
+
+# 적용 시, 게임내의 플레이어 머리상에 유저명이 표시됩니다.
+DisplayUserName=true
+
+# 사용자 이름 대신 플레이어 머리 위에 이름과 성을 표시합니다.
+ShowFirstAndLastName=false
+
+# 모든 플레이어를 설정한 좌표(. x, y, z,)에게 강제로 스폰시킬 수 있습니다.
+SpawnPoint=0,0,0
+
+# 적용 시, 플레이어는 PvP 모드를 활성화 할 수 있습니다.
+SafetySystem=true
+
+# 적용 시, PvP 모드로 되어 있는 플레이어 머리 위에 두개골 아이콘을 표시합니다.
+ShowSafety=true
+
+# 플레이어가 PvP 모드를 종료(모드 교체)하는데 필요한 시간을 설정합니다.
+SafetyToggleTimer=2
+
+# 플레이어가 다시 PvP 모드를 떠날 때까지의 지연 시간을 설정합니다.
+SafetyCooldownTimer=3
+
+# 플레이어 스폰과 동시에 아이템이 장비됩니다.
+SpawnItems=
+
+# 호스트 서버에 접속할 때 클라이언트가 사용하는, UDP 포트 번호를 설정해 주세요.
+DefaultPort=16261
+UDPPort=16262
+
+# 이 수치는 소프트 리셋을 실시하면 바뀝니다.
+ResetID={{ zomboid_reset_id | default('205159257') }}
+
+# 여기에 MOD 아이디를 입력하세요
+# Ansible Variable: zomboid_mod_ids
+Mods={{ zomboid_mod_ids | join(';') }}
+
+# MOD등의 MAP 파일 있는 폴더명을 지정해 주세요.
+# Ansible Variable: zomboid_maps
+Map={{ zomboid_maps | join(';') }}
+
+# 클라이언트의 게임 파일이 호스트 서버와 매치되지 않을 경우 클라이언트를 강제 배제하는 설정 옵션입니다.
+DoLuaChecksum=true
+
+DenyLoginOnOverloadedServer=true
+
+# 적용 시, 호스트 서버
+Public=false
+
+# 게임의 서버·브라우저(Steam서버·브라우저)에서 나타낼 명칭을 입력합니다.
+PublicName={{ zomboid_server_public_name }}
+
+# 게임의 서버·브라우저에서 나타낼 설명문을 입력합니다.
+PublicDescription={{ zomboid_public_description | default('같이 걷자 난 다 궁그매...') }}
+
+# 관리자를 제외한, 한번에 서버에 참가할 수 있는 최대 플레이어 수 설정입니다.
+MaxPlayers={{ zomboid_max_players }}
+
+# 서버부터 시작되기까지의 Ping한계 값(밀리초 단위).
+PingLimit=600
+
+# 전리품 아이템의 리스폰 할 최소의 값을 설정합니다.
+HoursForLootRespawn=0
+
+# 전리품 아이템이 컨테이너 내에 리스폰할 전리품 아이템 수의 상한치를 설정합니다.
+MaxItemsForLootRespawn=4
+
+# 적용시 전리품 아이템은 플레이어가 있는 존에서는 리스폰하지 않게 됩니다.
+ConstructionPreventsLootRespawn=true
+
+# 적용 시, 플레이어 사후 화이트리스트에서 플레이어 계정 정보를 삭제합니다.
+DropOffWhiteListAfterDeath=false
+
+# 적용시 캠프파이어의 불꽃을 제외하고 모든 형식의 불꽃은 무효가 됩니다.
+NoFire=false
+
+# 체크 박스를 유효하게 하면 다른 플레이어가 사망할 때마다 메시지가 채팅에 표시됩니다.
+AnnounceDeath=true
+
+# 게임 세계에서 독서를 한 경우에 1쪽을 읽는데 몇분 걸릴지 설정합니다.
+MinutesPerPage=0.01
+
+# 몇분마다 게임세계를 보존할지 설정합니다.
+SaveWorldEveryMinutes=60
+
+# 적용시 호스트 관리자 이외의 사람도 은신처를 사용할 수 있게 됩니다.
+PlayerSafehouse=false
+
+# 적용시 호스트 관리자는 은신처를 사용할 수 있게 됩니다.
+AdminSafehouse=false
+
+# 적용시 멤버 이외의 플레이어도 은신처를 사용할 수 있게 됩니다.
+SafehouseAllowTrepass=true
+
+# 적용시 은신처에서도 화재의 데미지를 입게 됩니다.
+SafehouseAllowFire=true
+
+# 적용시 멤버 이외의 플레이어도 은신처 내의 아이템을 잡을 수 있게 됩니다.
+SafehouseAllowLoot=true
+
+# 적용시 플레이어가 죽기전에 들어가 있던 소속팀의 세이브하우스에서 리스폰합니다.
+SafehouseAllowRespawn=false
+
+# 플레이어가 은신처를 구할 수 있게 될 때까지의 날짜를 설정합니다.
+SafehouseDaySurvivedToClaim=0
+
+# 플레이어가 획득한 은신처에 장기간 액세스가 없는 경우, 자동적으로 은신처를 삭제하는 시간을 설정합니다.
+SafeHouseRemovalTime=144
+
+# 비주거 건물에 플레이어가 은신처 신청이 가능한지 여부를 결정합니다.
+SafehouseAllowNonResidential=false
+
+# 적용시 클라이언트가 건축물을 파괴할 수 있게 됩니다.
+AllowDestructionBySledgehammer=true
+
+# 플레이어가 자신의 은신처에서만 오브젝트 파괴가 가능
+SledgehammerOnlyInSafehouse=false
+
+# 적용 시, 비정상적으로 빠른 움직임(치트를 사용한다)을 하는 플레이어를 서버에서 추방할 수 있습니다.
+KickFastPlayers=false
+
+# 클라이언트는 싱글플레이어 또는 다른 서버에서 플레이어 파일을 사용할 수 없습니다.
+ServerPlayerID=1464678474
+
+# RCON의 포트를 설정합니다.
+RCONPort=27015
+
+# RCON의 비밀번호를 설정합니다.
+RCONPassword=
+
+# Discord와의 통합을 유효하게 하다
+DiscordEnable=false
+DiscordToken=
+DiscordChannel=
+DiscordChannelID=
+
+# 서버 패스워드를 설정하면 클라이언트가 호스트 서버에 접속할 때, 패스워드가 필요하게 됩니다.
+Password={{ zomboid_server_password }}
+
+# 한 Steam사용자가 이 호스트 서버에서 만들 수 있는 최대 선수 수를 설정합니다.
+MaxAccountsPerUser=2
+
+# Allow co-op/splitscreen players
+AllowCoop=true
+
+# 적용 시 플레이어는 언제든지 잠을 잘 수 있게 됩니다.
+SleepAllowed=true
+
+# 적용 시 플레이어는 피곤하고 잠을 자는 것이 필요하게 됩니다.
+SleepNeeded=true
+
+KnockedDownAllowed=true
+
+SneakModeHideFromOtherPlayers=true
+
+# 다운로드할 서버의 Workshop Mod 아이디를 표시합니다. 세미콜론으로 구분합니다.
+# Ansible Variable: zomboid_workshop_ids
+WorkshopItems={{ zomboid_workshop_ids | join(';') }}
+
+# 접속자 목록을 STEAM 사용자 이름과 프로필 사진으로 표시합니다.
+SteamScoreboard=true
+
+# Steam VAC 시스템을 유효하게 합니다.
+SteamVAC=false
+
+# 적용시, 자동적으로 셋업포트 전송 룰에 UPnP 대응 인터넷 게이트웨이를 설정합니다.
+UPnP=false
+
+# 적용시 VOIP는 유효해집니다.
+VoiceEnable=true
+VoiceMinDistance=20.0
+VoiceMaxDistance=100.0
+Voice3D=true
+
+# 스피드 리밋
+SpeedLimit=70.0
+
+LoginQueueEnabled=false
+LoginQueueConnectTimeout=60
+
+# 서버가 브로드캐스트되는 IP를 설정합니다.
+server_browser_announced_ip=
+
+# 적용 시, 죽은 플레이어는 게임내에서 리스폰이 가능하게 됩니다.
+PlayerRespawnWithSelf=false
+
+# 적용 시 플레이어는 게임 내 분할화면 위치에서 리스폰 할 수 있게 됩니다.
+PlayerRespawnWithOther=false
+
+# 잠자고 있을 때의 시간 경과를 설정합니다.
+FastForwardMultiplier=40.0
+
+# 적용시 은신처에 누군가가 있는 경우, 은신처를 통상의 집처럼 동작시키는 설정입니다.
+DisableSafehouseWhenPlayerConnected=false
+
+# 적용시 플레이어가 조직을 작성할 수 있습니다.
+Faction=true
+
+# 조직을 작성하기 전에 며칠을 살아남아야 하는지 설정합니다.
+FactionDaySurvivedToCreate=0
+FactionPlayersRequiredForTag=1
+
+# 무전기 설정
+DisableRadioStaff=false
+DisableRadioAdmin=true
+DisableRadioGM=true
+DisableRadioOverseer=false
+DisableRadioModerator=false
+DisableRadioInvisible=true
+
+# 클라이언트 명령어 필터
+ClientCommandFilter=-vehicle.*;+vehicle.damageWindow;+vehicle.fixPart;+vehicle.installPart;+vehicle.uninstallPart
+
+# 클라이언트 액션 로그
+ClientActionLogs=ISEnterVehicle;ISExitVehicle;ISTakeEngineParts;
+
+# 플레이어 권한 로그
+PerkLogs=true
+
+# 컨테이너 아이템 제한
+ItemNumbersLimitPerContainer=500
+
+# 혈흔 소멸 일수
+BloodSplatLifespanDays=1
+
+# 유저명 문자 코드
+AllowNonAsciiUsername=false
+
+BanKickGlobalSound=true
+
+# 시체 삭제 시 플레이어 시체 포함 여부
+RemovePlayerCorpsesOnCorpseRemoval=false
+
+# 쓰레기통 모두 삭제
+TrashDeleteAll=false
+
+# PVP 경직
+PVPMeleeWhileHitReaction=false
+
+# 마우스 오버 이름 표시
+MouseOverToSeeDisplayName=false
+
+# 안 보이는 플레이어 숨김
+HidePlayersBehindYou=false
+
+# PVP 데미지 보정
+PVPMeleeDamageModifier=30.0
+PVPFirearmDamageModifier=50.0
+
+# 차량 좀비 어그로
+CarEngineAttractionModifier=1.0
+
+# 플레이어 충돌
+PlayerBumpPlayer=false
+
+# 지도 플레이어 표시 (1=숨김, 2=친구, 3=모두)
+MapRemotePlayerVisibility=3
+
+# 백업 설정
+BackupsCount=30
+BackupsOnStart=true
+BackupsOnVersionChange=true
+BackupsPeriod=60
+
+# AntiCheat Protection (대부분 true로 설정되어 있음)
+AntiCheatProtectionType1=false
+AntiCheatProtectionType2=false
+AntiCheatProtectionType3=false
+AntiCheatProtectionType4=false
+AntiCheatProtectionType5=false
+AntiCheatProtectionType6=false
+AntiCheatProtectionType7=false
+AntiCheatProtectionType8=false
+AntiCheatProtectionType9=false
+AntiCheatProtectionType10=false
+AntiCheatProtectionType11=false
+AntiCheatProtectionType12=false
+AntiCheatProtectionType13=false
+AntiCheatProtectionType14=false
+AntiCheatProtectionType15=false
+AntiCheatProtectionType16=false
+AntiCheatProtectionType17=false
+AntiCheatProtectionType18=false
+AntiCheatProtectionType19=false
+AntiCheatProtectionType20=false
+AntiCheatProtectionType21=false
+AntiCheatProtectionType22=false
+AntiCheatProtectionType23=false
+AntiCheatProtectionType24=false
+
+# AntiCheat Thresholds
+AntiCheatProtectionType2ThresholdMultiplier=3.0
+AntiCheatProtectionType3ThresholdMultiplier=1.0
+AntiCheatProtectionType4ThresholdMultiplier=1.0
+AntiCheatProtectionType9ThresholdMultiplier=1.0
+AntiCheatProtectionType15ThresholdMultiplier=1.0
+AntiCheatProtectionType20ThresholdMultiplier=1.0
+AntiCheatProtectionType22ThresholdMultiplier=1.0
+AntiCheatProtectionType24ThresholdMultiplier=6.0

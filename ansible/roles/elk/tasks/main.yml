@@ -1,0 +1,135 @@
+---
+- name: Set system timezone to Asia/Seoul
+  community.general.timezone:
+    name: Asia/Seoul
+  register: timezone_changed
+
+- name: Restart chronyd to apply timezone change
+  ansible.builtin.service:
+    name: chronyd
+    state: restarted
+    enabled: yes
+  when: timezone_changed.changed
+
+- name: Force time sync immediately (chronyc)
+  ansible.builtin.command: chronyc -a makestep
+  changed_when: false
+  ignore_errors: yes
+  
+- name: Import Elastic GPG Key
+  ansible.builtin.rpm_key:
+    state: present
+    key: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+
+- name: Add Elastic Repository
+  ansible.builtin.yum_repository:
+    name: elastic-8.x
+    description: Elastic repository for 8.x packages
+    baseurl: https://artifacts.elastic.co/packages/8.x/yum
+    gpgcheck: yes
+    gpgkey: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    enabled: yes
+
+- name: Install ELK Stack components
+  ansible.builtin.dnf:
+    name:
+      - elasticsearch
+      - logstash
+      - kibana
+    state: present
+
+# Elasticsearch 커널 파라미터 설정
+- name: Set vm.max_map_count for Elasticsearch
+  ansible.posix.sysctl:
+    name: vm.max_map_count
+    value: '262144'
+    state: present
+    reload: yes
+
+# 설정 파일 구성
+- name: Allow Kibana to be accessed from outside
+  ansible.builtin.lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?server.host:'
+    line: 'server.host: "0.0.0.0"'
+  notify: restart kibana
+
+- name: Configure Elasticsearch settings
+  ansible.builtin.lineinfile:
+    path: /etc/elasticsearch/elasticsearch.yml
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    state: "{{ item.state | default('present') }}"
+  loop:
+    - { regexp: '^#?network.host:', line: 'network.host: 0.0.0.0' }
+    - { regexp: '^#?discovery.type:', line: 'discovery.type: single-node' }
+    - { regexp: '^cluster.initial_master_nodes:', line: '', state: 'absent' }
+  notify: restart elasticsearch
+
+- name: Set JVM Heap Size for Elasticsearch
+  ansible.builtin.copy:
+    dest: /etc/elasticsearch/jvm.options.d/heap.options
+    content: |
+      -Xms{{ elasticsearch_heap_size }}
+      -Xmx{{ elasticsearch_heap_size }}
+    owner: root
+    group: elasticsearch
+  notify: restart elasticsearch
+
+- name: Flush handlers to apply configurations immediately
+  ansible.builtin.meta: flush_handlers
+
+# 서비스 기동 및 비밀번호 초기화
+- name: Ensure Elasticsearch is started
+  ansible.builtin.systemd:
+    name: elasticsearch
+    state: started
+
+- name: Wait for Elasticsearch to be ready
+  ansible.builtin.uri:
+    url: "https://localhost:9200"
+    status_code: [200, 401, 403]
+    validate_certs: false
+  register: es_status
+  until: es_status.status in [200, 401, 403]
+  retries: 20
+  delay: 5
+
+- name: Force reset elastic password to vault value
+  ansible.builtin.shell: |
+    /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i -b --url https://localhost:9200 <<EOF
+    y
+    {{ vault_elastic_password }}
+    {{ vault_elastic_password }}
+    EOF
+  register: reset_pwd
+  changed_when: "'Password for the [elastic] user successfully reset' in reset_pwd.stdout"
+
+- name: Copy Logstash configuration from template
+  ansible.builtin.template:
+    src: logstash.conf.j2
+    dest: /etc/logstash/conf.d/zomboid.conf
+    owner: logstash
+    group: logstash
+    mode: '0644'
+  notify: restart logstash
+
+- name: Open Firewall ports (5601, 5044)
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - 5601/tcp
+    - 5044/tcp
+
+- name: Start and Enable all ELK Services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - elasticsearch
+    - kibana
+    - logstash

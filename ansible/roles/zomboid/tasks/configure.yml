@@ -1,0 +1,39 @@
+---
+- name: Ensure Zomboid configuration directory exists
+  ansible.builtin.file:
+    path: "/home/steam/Zomboid/Server"
+    state: directory
+    owner: steam
+    group: steam
+    mode: '0755'
+  become: yes
+
+- name: Deploy Zomboid Main Configuration (INI)
+  ansible.builtin.template:
+    src: ingjingtell.ini.j2
+    dest: "/home/steam/Zomboid/Server/ingjingtell.ini"
+    owner: steam
+    group: steam
+    mode: '0644'
+  become: yes
+  notify: restart zomboid
+
+- name: Deploy Zomboid Sandbox Variables (LUA)
+  ansible.builtin.template:
+    src: ingjingtell_SandboxVars.lua.j2
+    dest: "/home/steam/Zomboid/Server/ingjingtell_SandboxVars.lua"
+    owner: steam
+    group: steam
+    mode: '0644'
+  become: yes
+  notify: restart zomboid
+
+- name: Deploy Zomboid Spawn Regions
+  ansible.builtin.template:
+    src: ingjingtell_spawnregions.lua.j2
+    dest: "/home/steam/Zomboid/Server/ingjingtell_spawnregions.lua"
+    owner: steam
+    group: steam
+    mode: '0644'
+  become: yes
+  notify: restart zomboid

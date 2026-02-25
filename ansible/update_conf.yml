@@ -1,0 +1,8 @@
+---
+- hosts: game_plane
+  become: yes
+  tasks:
+    - name: Run only configuration tasks
+      ansible.builtin.include_role:
+        name: zomboid
+        tasks_from: configure

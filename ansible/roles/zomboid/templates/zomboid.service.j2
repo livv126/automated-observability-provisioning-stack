@@ -1,0 +1,22 @@
+[Unit]
+Description=Project Zomboid Server
+After=network.target
+
+[Service]
+User={{ steam_user }}
+Group={{ steam_user }}
+WorkingDirectory={{ pz_dir }}
+
+# 서비스 실행 명령 (서버명 및 관리자 패스워드 지정)
+ExecStart={{ pz_dir }}/start-server.sh -servername {{ zomboid_server_name }} -adminpassword {{ zomboid_admin_password }}
+
+# 장애 발생 시 10초 후 자동 재시작
+Restart=on-failure
+RestartSec=10s
+
+# journalctl 로그 수집 연동
+StandardOutput=journal
+StandardError=inherit
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+steam_user: "steam"
+steamcmd_dir: "/home/steam/steamcmd"
+pz_dir: "/opt/pzserver"
+zomboid_server_name: "ingjingtell"
+
+# 서버 기본 정보
+zomboid_server_public_name: "aaa"
+zomboid_max_players: 12
+
+# 게임 운영 설정
+zomboid_pvp: true
+zomboid_pause_empty: true
+zomboid_welcome_msg: "bb"

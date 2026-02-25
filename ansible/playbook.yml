@@ -1,0 +1,24 @@
+---
+- name: Provision Hybrid Infrastructure
+  hosts: all
+  become: yes
+  roles:
+    - common
+    - tailscale
+
+- name: Deploy Monitoring to VM 2
+  hosts: log_plane
+  become: yes
+  gather_facts: yes # Tailscale IP 갱신용
+  roles:
+    - elk
+
+- name: Deploy Game Server to GCP
+  hosts: game_plane
+  become: yes
+  gather_facts: yes
+  vars:
+    log_plane_tailscale_ip: "{{ hostvars['log-node']['ansible_tailscale0']['ipv4']['address'] }}" # 동적 IP 참조
+  roles:
+    - zomboid
+    - filebeat

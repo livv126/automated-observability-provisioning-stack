@@ -1,0 +1,7 @@
+---
+- name: restart zomboid
+  ansible.builtin.systemd:
+    name: zomboid
+    state: restarted
+    enabled: yes
+  become: yes

@@ -1,0 +1,131 @@
+---
+- name: Install 32-bit libraries for SteamCMD (Game Plane only)
+  ansible.builtin.dnf:
+    name:
+      - glibc.i686
+      - libstdc++.i686
+    state: present
+    
+# 방화벽 설정
+- name: Open Game Ports (Firewalld)
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: yes
+    state: enabled
+    immediate: yes
+  loop:
+    - 16261/udp
+    - 16262/udp
+
+# 전용 계정 및 디렉토리 설정
+- name: Create steam user
+  ansible.builtin.user:
+    name: "{{ steam_user }}"
+    home: "/home/{{ steam_user }}"
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+  loop:
+    - "{{ steamcmd_dir }}"
+    - "{{ pz_dir }}"
+
+# SteamCMD 및 게임 설치
+- name: Install Project Zomboid (Force Platform Linux)
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -sqL "https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz" | tar zxvf - -C {{ steamcmd_dir }}
+    {{ steamcmd_dir }}/steamcmd.sh +@sSteamCmdForcePlatformType linux +force_install_dir {{ pz_dir }} +login anonymous +app_update 380870 validate +quit
+  become_user: "{{ steam_user }}"
+  args:
+    executable: /bin/bash
+    creates: "{{ pz_dir }}/ProjectZomboid64.json"
+
+- name: Create Zomboid systemd service file
+  ansible.builtin.template:
+    src: zomboid.service.j2
+    dest: /etc/systemd/system/zomboid.service
+    owner: root
+    group: root
+    mode: '0644'
+  become: yes
+
+- name: Reload systemd to recognize the new service
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: yes
+
+# JVM 메모리 설정 (Xmx/Xms)
+- name: "Zomboid | Set JVM Max Memory (Xmx) to 24GB"
+  ansible.builtin.lineinfile:
+    path: "{{ pz_dir }}/ProjectZomboid64.json"
+    regexp: '^\s*"-Xmx.*'
+    line: '        "-Xmx24g",'
+    state: present
+  become: yes
+  become_user: "{{ steam_user }}"
+  notify: restart zomboid
+
+- name: "Zomboid | Ensure JVM Initial Memory (Xms) is 24GB"
+  ansible.builtin.lineinfile:
+    path: "{{ pz_dir }}/ProjectZomboid64.json"
+    regexp: '^\s*"-Xms.*'
+    line: '        "-Xms24g",'
+    insertbefore: '^\s*"-Xmx.*'
+    state: present
+  become: yes
+  become_user: "{{ steam_user }}"
+  notify: restart zomboid
+
+# 스크립트 실행 권한 부여 및 Windows 줄바꿈 제거
+- name: "Zomboid | Ensure start-server.sh is executable"
+  ansible.builtin.file:
+    path: "{{ pz_dir }}/start-server.sh"
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: '0755'
+  become: yes
+
+- name: "Zomboid | Remove Windows line endings (^M) from all config/scripts"
+  ansible.builtin.replace:
+    path: "{{ item }}"
+    regexp: '\r'
+    replace: ''
+  loop:
+    - "{{ pz_dir }}/ProjectZomboid64.json"
+    - "{{ pz_dir }}/start-server.sh"
+  become: yes
+
+# 커스텀 최적화 클래스 배포
+- name: "Zomboid | Create optimizer class directory"
+  ansible.builtin.file:
+    path: "{{ pz_dir }}/java/zombie/popman"
+    state: directory
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: '0755'
+  become: yes
+
+- name: "Zomboid | Deploy optimizer classes"
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "{{ pz_dir }}/java/zombie/popman/{{ item }}"
+    owner: "{{ steam_user }}"
+    group: "{{ steam_user }}"
+    mode: '0644'
+    backup: yes
+  loop:
+    - NetworkZombiePacker.class
+    - ZombieCountOptimiser.class
+  become: yes
+  notify: restart zomboid
+
+- name: Enable and start Zomboid service
+  ansible.builtin.systemd:
+    name: zomboid
+    enabled: yes
+    state: started
+  become: yes

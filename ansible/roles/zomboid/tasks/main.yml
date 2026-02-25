@@ -1,0 +1,8 @@
+---
+- name: "Zomboid | Installation"
+  ansible.builtin.include_tasks: install.yml
+  tags: [ "zomboid_install", "zomboid_all" ]
+
+- name: "Zomboid | Configuration"
+  ansible.builtin.include_tasks: configure.yml
+  tags: [ "zomboid_config", "zomboid_all" ]

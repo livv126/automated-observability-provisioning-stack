@@ -1,0 +1,14 @@
+---
+- name: Update all packages
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+
+- name: Install truly common tools
+  ansible.builtin.dnf:
+    name:
+      - dnf-utils
+      - tar
+      - curl
+      - vim  # 관리 편의용
+    state: present

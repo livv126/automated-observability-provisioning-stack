@@ -1,0 +1,47 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /home/steam/Zomboid/Logs/*.txt
+  
+  # 메타데이터 태깅
+  fields:
+    service: zomboid_server
+    log_type: game_log
+  fields_under_root: true
+
+  # 파일 감시 및 핸들 관리
+  scan_frequency: 10s
+  close_inactive: 5m      # 5분간 업데이트가 없는 파일 핸들 반환
+  ignore_older: 72h       # 72시간 이상 변경이 없는 파일 수집 제외
+  clean_inactive: 96h     # 96시간 초과 시 Filebeat 레지스트리 상태 지우기
+  
+  # 파일 로테이션 대응
+  close_renamed: true
+  close_removed: true
+
+  # 멀티라인 파싱 (Java Exception 등 다중 행 로그 병합)
+  multiline.type: pattern
+  multiline.pattern: '^\[[0-9]{2}-[0-9]{2}-[0-9]{2}'
+  multiline.negate: true
+  multiline.match: after
+
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yml
+  reload.enabled: false
+
+output.logstash:
+  hosts: ["{{ log_plane_tailscale_ip }}:5044"]
+  
+  # 전송 및 네트워크 최적화
+  compression_level: 1    # 전송 압축 속도 최우선 (1~9)
+  pipelining: 2           # 비동기 병렬 파이프라인 처리 수
+  bulk_max_size: 1024     # 단일 배치 전송 최대 이벤트 수
+
+logging.level: warning
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
